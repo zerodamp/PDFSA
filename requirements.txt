@@ -1,0 +1,4 @@
+PyPDF2==1.26.0
+nltk==3.6.3
+sumy==0.8.1
+rake-nltk==1.0.4
