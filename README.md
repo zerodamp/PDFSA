@@ -1,0 +1,2 @@
+# PDFSA
+PDF summariser algorithm
