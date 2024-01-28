@@ -3,73 +3,85 @@ from nltk.tokenize import sent_tokenize
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.summarizers.text_rank import TextRankSummarizer
 from sumy.nlp.tokenizers import Tokenizer
-from rake_nltk import Rake  # Rake'yi ekledik
+from rake_nltk import Rake  # Added Rake
 
-def anahtar_kelime_cikar(metin, maksimum_kelime_sayisi=100):
-    # Anahtar kelime çıkarma işlemi
+def extract_keywords(text, max_word_count=100):
+    # Keyword extraction
     r = Rake()
-    r.extract_keywords_from_text(metin)
-    anahtar_kelimeler = r.get_ranked_phrases()[:maksimum_kelime_sayisi]
-    return anahtar_kelimeler
+    r.extract_keywords_from_text(text)
+    keywords = r.get_ranked_phrases()[:max_word_count]
+    return keywords
 
-def pdf_metni_oku(pdf_yolu):
+def read_pdf_text(pdf_path):
     try:
-        # PDF'den metin çıkarma işlemi
-        pdf = PdfReader(pdf_yolu)
-        metin = ""
-        for sayfa in pdf.pages:
-            metin += sayfa.extract_text()
-        return metin
+        # Extract text from PDF
+        pdf = PdfReader(pdf_path)
+        text = ""
+        for page in pdf.pages:
+            text += page.extract_text()
+        return text
     except Exception as e:
-        print(f"Hata: {e}")
+        print(f"Error: {e}")
         return None
 
-def anlam_kontrolu(ozet, metin):
-    # Anlam kontrolü
-    anahtar_kelimeler_ozet = set(ozet.split())
-    kelimeler_metin = set(metin.split())
+def check_meaning(summary, text):
+    # Meaning check
+    summary_keywords = set(summary.split())
+    text_keywords = set(text.split())
 
-    if not anahtar_kelimeler_ozet.issubset(kelimeler_metin):
+    if not summary_keywords.issubset(text_keywords):
         return False
     return True
 
-def metni_analiz_et_textrank(metin, cümle_sayisi=5):
-    # Textrank algoritması ile özetleme işlemi
-    parser = PlaintextParser.from_string(metin, Tokenizer("turkish"))
+def analyze_text_textrank(text, sentence_count=5, language='english'):
+    # Summarize text using TextRank algorithm
+    parser = PlaintextParser.from_string(text, Tokenizer(language))
     summarizer = TextRankSummarizer()
-    ozet = summarizer(parser.document, cümle_sayisi)
+    summary = summarizer(parser.document, sentence_count)
 
-    return ' '.join([str(cumle) for cumle in ozet])
+    return ' '.join([str(sentence) for sentence in summary])
 
-def metni_analiz_et(metin, maksimum_karakter=500):
-    # Özel özetleme işlemi (örneğin, metni ilk 500 karakterle sınırlamak)
-    return metin[:maksimum_karakter]
+def analyze_text(text, max_characters=500):
+    # Custom summarization (e.g., limiting the text to the first 500 characters)
+    return text[:max_characters]
 
-# Kullanıcıdan PDF dosyasının yolunu al
-pdf_yolu = input("PDF dosyasının yolunu girin: ")
+# Supported languages
+supported_languages = ['english', 'turkish', 'spanish', 'russian', 'german', 'french', 'arabic']  # Add more languages as needed
 
-# PDF'den metin çıkar ve özetle
-pdf_metni = pdf_metni_oku(pdf_yolu)
-if pdf_metni:
-    # Cümle sayısını belirle
-    cumleler = sent_tokenize(pdf_metni)
-    toplam_cumle_sayisi = len(cumleler)
+# Prompt user to select a language
+print("Supported languages: ", ', '.join(supported_languages))
+selected_language = input("Select a language: ").lower()
 
-    # Özetleme işlemi (maksimum 500 karakter)
-    ozet_textrank = metni_analiz_et_textrank(pdf_metni)
-    print("\nTextrank Özet:")
-    print(ozet_textrank)
+# Validate selected language
+if selected_language not in supported_languages:
+    print("Invalid language selection. Defaulting to English.")
+    selected_language = 'english'
 
-    # Anlam kontrolü yap
-    if not anlam_kontrolu(ozet_textrank, pdf_metni):
-        print("\nTextrank Özet anlamsız. Diğer algoritmalarla yeniden özetleniyor...")
+# Get the path of the PDF file from the user
+pdf_path = input("Enter the path of the PDF file: ")
 
-        # Diğer algoritmalarla yeniden özetleme işlemi (maksimum 500 karakter)
-        ozet = metni_analiz_et(pdf_metni, maksimum_karakter=500)
-        print("\nYeniden Özet:")
-        print(ozet)
+# Extract text from PDF and summarize
+pdf_text = read_pdf_text(pdf_path)
+if pdf_text:
+    # Determine the number of sentences
+    sentences = sent_tokenize(pdf_text)
+    total_sentence_count = len(sentences)
+
+    # Summarization (maximum 500 characters)
+    textrank_summary = analyze_text_textrank(pdf_text, language=selected_language)
+    print("\nSummary:")
+    print(textrank_summary)
+
+    # Meaning check
+    if not check_meaning(textrank_summary, pdf_text):
+        print("\nSummary is meaningless. Re-summarizing with other algorithms...")
+
+        # Re-summarize with other algorithms (maximum 500 characters)
+        summary = analyze_text(pdf_text, max_characters=500)
+        print("\nRe-Summary:")
+        print(summary)
     else:
-        print("\nTextrank Özet anlamlı.")
+        print("\nSummary is meaningful.")
 
 else:
-    print("PDF'den özet çıkarma işlemi başarısız.")
+    print("Failed to extract text from the PDF.")
